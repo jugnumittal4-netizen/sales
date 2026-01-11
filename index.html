@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Salon Manager</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f4f4;
+            margin: 0
+        }
+
+        header {
+            background: #222;
+            color: white;
+            padding: 15px;
+            text-align: center
+        }
+
+        nav {
+            display: flex;
+            flex-wrap: wrap
+        }
+
+        nav button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: #444;
+            color: white;
+            cursor: pointer
+        }
+
+        nav button:hover {
+            background: #0aa
+        }
+
+        section {
+            display: none;
+            padding: 15px
+        }
+
+        input,
+        select,
+        button {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px
+        }
+
+        th,
+        td {
+            border: 1px solid #aaa;
+            padding: 6px;
+            text-align: center
+        }
+
+        th {
+            background: #ddd
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h2>Salon Manager</h2>
+    </header>
+
+    <nav>
+        <button onclick="show('billing')">Billing</button>
+        <button onclick="show('sales')">Sales</button>
+        <button onclick="show('expenses')">Expenses</button>
+        <button onclick="show('old')">Old Entries</button>
+        <button onclick="show('profit')">Profit</button>
+    </nav>
+
+    <!-- BILLING -->
+    <section id="billing">
+        <h3>Create Bill</h3>
+        <input id="custName" placeholder="Customer Name">
+
+        <input id="billAmt" type="number" placeholder="Total Amount">
+
+        <select id="billPay">
+            <option>Cash</option>
+            <option>UPI</option>
+            <option>Card</option>
+        </select>
+
+        <button onclick="saveBill()">Save Bill</button>
+    </section>
+
+    <!-- SALES -->
+    <section id="sales">
+        <h3>Sales History</h3>
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Payment</th>
+                <th>Action</th>
+            </tr>
+            <tbody id="salesTable"></tbody>
+        </table>
+    </section>
+
+    <!-- EXPENSES -->
+    <section id="expenses">
+        <h3>Add Expense</h3>
+        <input id="expDate" type="date">
+        <input id="expName" placeholder="Expense Name">
+        <input id="expAmt" type="number" placeholder="Amount">
+        <button onclick="addExpense()">Save Expense</button>
+
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Action</th>
+            </tr>
+            <tbody id="expTable"></tbody>
+        </table>
+    </section>
+
+    <!-- OLD ENTRIES -->
+    <section id="old">
+
+        <h3>Add FULL DAY SALES</h3>
+        <input type="date" id="dayDate">
+        <input type="number" id="dayCash" placeholder="Cash Sales">
+        <input type="number" id="dayUpi" placeholder="UPI Sales">
+        <input type="number" id="dayCard" placeholder="Card Sales">
+        <button onclick="saveDaySales()">Save Day Sales</button>
+
+        <hr>
+
+        <h3>Add Old Single Sale</h3>
+        <input type="date" id="oldSaleDate">
+        <input type="number" id="oldSaleAmt" placeholder="Amount">
+        <select id="oldSalePay">
+            <option>Cash</option>
+            <option>UPI</option>
+            <option>Card</option>
+        </select>
+        <button onclick="addOldSale()">Save Old Sale</button>
+
+        <hr>
+
+        <h3>Add Old Expense</h3>
+        <input type="date" id="oldExpDate">
+        <input id="oldExpName" placeholder="Expense Name">
+        <input type="number" id="oldExpAmt" placeholder="Amount">
+        <button onclick="addOldExpense()">Save Old Expense</button>
+
+    </section>
+
+    <!-- PROFIT -->
+    <section id="profit">
+        <h3>Profit / Loss</h3>
+        <button onclick="calcProfit()">Calculate</button>
+        <div id="profitRes"></div>
+    </section>
+
+    <script>
+        const today = () => new Date().toISOString().split("T")[0];
+
+        let bills = JSON.parse(localStorage.bills || "[]");
+        let expenses = JSON.parse(localStorage.expenses || "[]");
+
+        function show(id) {
+            document.querySelectorAll("section").forEach(s => s.style.display = "none");
+            document.getElementById(id).style.display = "block";
+            render();
+        }
+        show("billing");
+
+        // ---------- BILLING ----------
+        function saveBill() {
+            if (!billAmt.value) return alert("Enter amount");
+            bills.push({
+                id: Date.now(),
+                date: today(),
+                customer: custName.value || "Walk-in",
+                amount: +billAmt.value,
+                payment: billPay.value
+            });
+            localStorage.bills = JSON.stringify(bills);
+            custName.value = billAmt.value = "";
+            render();
+        }
+
+        // ---------- DAY SALES ----------
+        function saveDaySales() {
+            if (!dayDate.value) return alert("Select date");
+
+            [
+                { amt: +dayCash.value, pay: "Cash" },
+                { amt: +dayUpi.value, pay: "UPI" },
+                { amt: +dayCard.value, pay: "Card" }
+            ].forEach(e => {
+                if (e.amt > 0) {
+                    bills.push({
+                        id: Date.now() + Math.random(),
+                        date: dayDate.value,
+                        customer: "DAY TOTAL",
+                        amount: e.amt,
+                        payment: e.pay
+                    });
+                }
+            });
+
+            localStorage.bills = JSON.stringify(bills);
+            dayDate.value = dayCash.value = dayUpi.value = dayCard.value = "";
+            render();
+            alert("Day sales added");
+        }
+
+        // ---------- OLD SALE ----------
+        function addOldSale() {
+            bills.push({
+                id: Date.now(),
+                date: oldSaleDate.value,
+                customer: "OLD ENTRY",
+                amount: +oldSaleAmt.value,
+                payment: oldSalePay.value
+            });
+            localStorage.bills = JSON.stringify(bills);
+            oldSaleDate.value = oldSaleAmt.value = "";
+            render();
+        }
+
+        // ---------- EXPENSE ----------
+        function addExpense() {
+            expenses.push({
+                id: Date.now(),
+                date: expDate.value || today(),
+                name: expName.value,
+                amt: +expAmt.value
+            });
+            localStorage.expenses = JSON.stringify(expenses);
+            expName.value = expAmt.value = "";
+            render();
+        }
+
+        function addOldExpense() {
+            expenses.push({
+                id: Date.now(),
+                date: oldExpDate.value,
+                name: oldExpName.value,
+                amt: +oldExpAmt.value
+            });
+            localStorage.expenses = JSON.stringify(expenses);
+            oldExpName.value = oldExpAmt.value = "";
+            render();
+        }
+
+        // ---------- DELETE ----------
+        function delSale(id) {
+            bills = bills.filter(b => b.id !== id);
+            localStorage.bills = JSON.stringify(bills);
+            render();
+        }
+        function delExp(id) {
+            expenses = expenses.filter(e => e.id !== id);
+            localStorage.expenses = JSON.stringify(expenses);
+            render();
+        }
+
+        // ---------- PROFIT ----------
+        function calcProfit() {
+            let sales = bills.reduce((a, b) => a + b.amount, 0);
+            let exp = expenses.reduce((a, b) => a + b.amt, 0);
+            profitRes.innerHTML = `Sales: ₹${sales}<br>Expenses: ₹${exp}<br><b>Profit: ₹${sales - exp}</b>`;
+        }
+
+        // ---------- RENDER ----------
+        function render() {
+            salesTable.innerHTML = bills.map(b => `
+ <tr>
+ <td>${b.date}</td>
+ <td>${b.customer}</td>
+ <td>${b.amount}</td>
+ <td>${b.payment}</td>
+ <td><button onclick="delSale(${b.id})">Delete</button></td>
+ </tr>`).join("");
+
+            expTable.innerHTML = expenses.map(e => `
+ <tr>
+ <td>${e.date}</td>
+ <td>${e.name}</td>
+ <td>${e.amt}</td>
+ <td><button onclick="delExp(${e.id})">Delete</button></td>
+ </tr>`).join("");
+        }
+    </script>
+
+</body>
+
+</html>
